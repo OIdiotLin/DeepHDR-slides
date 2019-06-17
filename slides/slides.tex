@@ -1,0 +1,194 @@
+\documentclass{beamer}
+
+\usefonttheme[onlymath]{serif}
+
+\usepackage{xeCJK}
+\setCJKmainfont[BoldFont=Source Han Sans CN Bold, ItalicFont=AR PL UKai CN]{Source Han Serif CN}
+
+\usepackage{graphicx}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\renewcommand{\figurename}{图}
+\renewcommand{\tablename}{表}
+\setlength\parindent{2em}
+
+\usetheme{Madrid}
+
+\AtBeginSection[]{
+    \begin{frame}{目录}
+        \hfill
+        \parbox[t]{.95\textwidth}{
+            \begin{minipage}[c][0.75\textheight]{\textwidth}
+            \tableofcontents[currentsection, currentsection]
+            \end{minipage}
+        }
+    \end{frame}
+}
+
+\title{\textbf{DeepHDR - 前景大幅度变化下的HDR成像方法}}
+\author{林会东}
+\institute{\textit{华南理工大学~软件学院}}
+
+\begin{document}
+    \frame{\titlepage}
+
+    \section{简介}
+
+    \subsection{摘要}
+    \begin{frame}{摘要}
+        本文提出了一种非基于光流的深度模型，用于在\textbf{前景图像发生大幅动作变化}时，
+        通过多张不同曝光图片生成 HDR 图像。
+
+
+    \end{frame}
+
+    \subsection{Demo}
+    \begin{frame}{Demo}           
+        \begin{figure}[!ht]
+            \centering
+            \only<1>{
+                \includegraphics[width=.6\textwidth]{images/demo-1.jpg}
+                \label{fig:demo-1}
+            }
+            \only<2>{
+                \includegraphics[width=.6\textwidth]{images/demo-2.jpg}
+                \label{fig:demo-2}
+            }
+            \only<3>{
+                \includegraphics[width=.6\textwidth]{images/demo-3.jpg}
+                \label{fig:demo-3}
+            }
+            \only<4>{
+                \includegraphics[width=.7\textwidth]{images/demo-4-a.png}
+                \includegraphics[width=.6\textwidth]{images/demo-4-b.png}
+                \label{fig:demo-4}
+            }
+        \end{figure}
+    \end{frame}
+
+    \section{问题}
+
+    \begin{frame}{图像未对齐(unaligned)}
+        \only<1>{
+            前景/背景图像未对齐的时候，一些传统方法会导致：
+            \begin{enumerate}
+                \item 残影(ghost)
+                \item 伪像(color artifacting)
+            \end{enumerate}
+        }
+        \only<2>{
+            \begin{figure}[!ht]
+                \centering
+                \includegraphics[width=0.9\textwidth]{images/defects.jpg}
+                \caption{图像未对齐时，其他方法与本文方法的结果对比。容易发现，其他方法会导致残影、伪像等图像缺陷。}
+                \label{fig:defects}
+            \end{figure}
+        }
+    \end{frame}
+    
+    \begin{frame}{图像对齐的方法 - 光流}
+        \only<1>{
+            光流法实际是通过检测图像像素点的强度随时间的变化进而推断出物体移动速度及方向的方法。
+
+            假设物体移动后亮度相同：
+
+            $$I(x,y,t) = I(x+\Delta x, y+\Delta y, t+\Delta t)$$
+
+            当该移动很小时，由 Taylor 公式得：
+
+            $$I(x+\Delta x,y+\Delta y,t+\Delta t) = I(x,y,t) + \frac{\partial I}{\partial x}\Delta x+
+            \frac{\partial I}{\partial y}\Delta y+\frac{\partial I}{\partial t}\Delta t + \sigma$$
+
+            则：
+
+            $$\frac{\partial I}{\partial x}V_x+\frac{\partial I}{\partial y}V_y+\frac{\partial I}
+            {\partial t} = 0$$
+            
+            上面的$V_x,V_y$就是$I(x,y,t)$的光流。
+        }
+        \only<2>{
+            $$I_xV_x+I_yV_y=-I_t$$
+
+            要推出具体的光流还需要一组由\textbf{附加约束条件}给出的方程，这也导致光流方法是不够稳定的。而且，当采用
+            多级曝光方法时，光流法可能会导致大块的伪像。
+
+            \begin{figure}[!ht]
+                \centering
+                \includegraphics[width=0.9\textwidth]{images/defects.jpg}
+                \caption{注意光流法中产生的图像缺陷}
+                \label{fig:defects-2}
+            \end{figure}
+        }
+    \end{frame}
+
+    \section{解决办法}
+
+    \subsection{网络结构}
+
+    \begin{frame}{思路}
+        本文将多级曝光图片合并成单张HDR图像的过程看做是\textbf{图像翻译问题}。
+
+        作者调研发现一种解决思路是使用 GAN，同时，使用 CNN 来学习未对齐的部分。因此他们放弃了光流方法，
+        提出了一种端到端的网络结构来产生无残影的HDR图像。
+    \end{frame}
+
+    \begin{frame}{网络结构}
+        \only<1>{
+            \begin{figure}[!ht]
+                \centering
+                \includegraphics[width=.8\textwidth]{images/network-arch.jpg}
+                \caption{本文提出的整体网络架构，主要由三部分组成：(1) Encoder (2) Merger (3) Decoder}
+                \label{fig:network-arch}
+            \end{figure}
+        }
+        \only<2>{
+            \begin{figure}[!ht]
+                \centering
+                \includegraphics[width=.3\textwidth]{images/network-struct.jpg}
+                \caption{本文尝试了两种不同的Encoder-Decoder结构：(1) Unet (2) ResNet}
+                \label{fig:network-struct}
+            \end{figure}
+        }
+    \end{frame}
+
+    \subsection{具体细节}
+
+    \begin{frame}{预处理}
+        \begin{enumerate}
+            \item 给定输入的LDR图片，如果不是RAW形式的，就用Camera Response Function(CRF)的反函数进行辐射校准。
+            \footnote{然而不用辐射校准的图片效果也还行，详见图~\ref{fig:demo-1}}
+            \item 伽马校准。
+        \end{enumerate}
+
+        \pause
+        \begin{block}{LDRs $\mathcal{I}=\{I_1,I_2,I_3\}$ 到 HDRs $\mathcal{H}=\{H_1,H_2,H_3\}$ 映射}
+            $$H_i=\frac{I_i^\gamma}{t_i}, \gamma > 1, $$
+        \end{block}
+
+        \pause
+        上式中的 $t_i$ 指 $I_i$ 的曝光时长。DeepHDR 的输入取 $\mathcal{I}$ 和 $\mathcal{H}$ 的简单 6 通道连接。
+    \end{frame}
+
+    \begin{frame}{Loss}
+        DeepHDR 网络 $f$ 可以如下表示：
+
+        $$\hat{H} = f(\mathcal{I}, \mathcal{H})$$
+
+        则 $\hat{H}$ 是生成的 HDR 图像。
+
+        由于 HDR 图像通常是经过色调映射(tonemapping)后才显示出来的，为了高效运算，Loss 函数直接在色调映射后的图像上计算。
+
+        $$\mathcal{T}(H) = \frac{\log(1+\mu H)}{\log(1+\mu)}$$
+
+        $$\mathcal{L}_{Unet} = \norm{\mathcal{T}(\hat{H}) - \mathcal{T}(H)}_2$$
+
+        其中 $H$ 是 GT。
+
+    \end{frame}
+
+    \section{总结}
+
+    
+
+
+\end{document}
