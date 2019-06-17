@@ -6,6 +6,7 @@
 \setCJKmainfont[BoldFont=Source Han Sans CN Bold, ItalicFont=AR PL UKai CN]{Source Han Serif CN}
 
 \usepackage{graphicx}
+\usepackage{hyperref}
 
 \newcommand{\norm}[1]{\left\lVert#1\right\rVert}
 \renewcommand{\figurename}{图}
@@ -186,9 +187,49 @@
 
     \end{frame}
 
+    \subsection{实现}
+
+    \begin{frame}{模型实现}
+        作者使用 \texttt{TensorFlow} 实现并训练了\textit{Unet}模型。
+        \begin{itemize}
+            \item 所有层使用$5\times 5$卷积核，后接着 BatchNormalization 层（第一层和输出层除外）。
+            \item encoder部分使用 leakey ReLU 激活函数；decoder部分使用 ReLU。
+            \item encoder部分通道数从64到512层层倍增；decoder部分通道数从512到64层层倍减。
+        \end{itemize}
+    \end{frame}
+
+    \begin{frame}{运行结果}
+        作者实现的模型在 GPU (Titan X Pascal) 上融合 3 张 $896\times 1408$ LDR 需要 \textbf{0.225s}。
+        
+        经过我自己跑Demo\footnote{\url{https://github.com/elliottwu/DeepHDR}}，测得在 CPU 
+        (i7-4712MQ, 2.30GHz) 上处理等大的图片大约需要 \textbf{15s}。
+
+        \textit{Unet} 模型大小为\textbf{66.5MB}。
+    \end{frame}
+
     \section{总结}
 
-    
+    \begin{frame}{总结}
+        \begin{block}{Pros}
+            \begin{enumerate}
+                \pause
+                \item 能够比较有效地解决前景大幅移动的图像融合问题
+                \pause
+                \item 相比某些动辄上G的模型，这个模型参数已经比较小了
+            \end{enumerate}
+        \end{block}
+
+        \pause
+        \vspace{1cm}
+        \begin{block}{Cons}
+            \begin{enumerate}
+                \pause
+                \item 处理速度不是很快，手机上可能难以接受
+                \pause
+                \item 仍然需要手动设置 Tonemapping 的参数，不够智能
+            \end{enumerate}
+        \end{block}
+    \end{frame}
 
 
 \end{document}
